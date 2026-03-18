@@ -3,41 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cijfer Tracker</title>
+    <title>Mijn Cijfer Tracker Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .input-group { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
-        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background-color: #218838; }
-        .stats { margin-top: 20px; font-weight: bold; font-size: 1.2em; }
-        canvas { margin-top: 30px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #1a73e8; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .input-group { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; flex: 1; min-width: 120px; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-add { background-color: #28a745; color: white; }
+        .btn-clear { background-color: #dc3545; color: white; margin-left: 10px; }
+        button:hover { opacity: 0.8; }
+        .stats { margin: 20px 0; font-size: 1.3em; display: flex; justify-content: space-between; align-items: center; }
+        #totaalGemiddelde { color: #1a73e8; font-weight: 800; }
+        .chart-container { position: relative; height: 40vh; width: 100%; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Mijn Cijfer Ontwikkeling</h2>
+    <h2>Cijfer Ontwikkeling</h2>
     
     <div class="input-group">
-        <input type="text" id="vak" placeholder="Vak (bijv. Wiskunde)">
+        <input type="text" id="vak" placeholder="Vak">
         <input type="number" id="cijfer" step="0.1" min="1" max="10" placeholder="Cijfer">
         <input type="date" id="datum">
-        <button onclick="voegCijferToe()">Toevoegen</button>
+        <button class="btn-add" onclick="voegCijferToe()">Voeg toe</button>
+        <button class="btn-clear" onclick="wisAlles()">Wis alles</button>
     </div>
 
     <div class="stats">
-        Gemiddelde: <span id="totaalGemiddelde">-</span>
+        <span>Gemiddelde (totaal): <span id="totaalGemiddelde">-</span></span>
     </div>
 
-    <canvas id="cijferGrafiek"></canvas>
+    <div class="chart-container">
+        <canvas id="cijferGrafiek"></canvas>
+    </div>
 </div>
 
 <script>
-    let dataPunten = [];
+    let dataPunten = JSON.parse(localStorage.getItem('mijnCijfers')) || [];
     let grafiek;
+
+    // Direct laden bij opstarten
+    window.onload = () => {
+        updateStats();
+        updateGrafiek();
+    };
 
     function voegCijferToe() {
         const vak = document.getElementById('vak').value;
@@ -45,38 +58,49 @@
         const datum = document.getElementById('datum').value;
 
         if (!vak || isNaN(cijfer) || !datum) {
-            alert("Vul alsjeblieft alle velden correct in.");
+            alert("Vul alle velden in.");
             return;
         }
 
-        // Data opslaan
         dataPunten.push({ vak, cijfer, datum });
-        
-        // Sorteren op datum voor de grafiek
         dataPunten.sort((a, b) => new Date(a.datum) - new Date(b.datum));
 
+        slaOpEnUpdate();
+        
+        // Reset velden
+        document.getElementById('cijfer').value = '';
+        document.getElementById('vak').value = '';
+    }
+
+    function slaOpEnUpdate() {
+        localStorage.setItem('mijnCijfers', JSON.stringify(dataPunten));
         updateStats();
         updateGrafiek();
-        
-        // Input velden leegmaken
-        document.getElementById('cijfer').value = '';
     }
 
     function updateStats() {
+        if (dataPunten.length === 0) {
+            document.getElementById('totaalGemiddelde').innerText = "-";
+            return;
+        }
         const totaal = dataPunten.reduce((sum, item) => sum + item.cijfer, 0);
         const gemiddelde = (totaal / dataPunten.length).toFixed(2);
         document.getElementById('totaalGemiddelde').innerText = gemiddelde;
     }
 
+    function wisAlles() {
+        if (confirm("Weet je zeker dat je alle cijfers wilt wissen?")) {
+            dataPunten = [];
+            slaOpEnUpdate();
+        }
+    }
+
     function updateGrafiek() {
         const ctx = document.getElementById('cijferGrafiek').getContext('2d');
-        
-        const labels = dataPunten.map(d => d.datum);
+        const labels = dataPunten.map(d => `${d.datum} (${d.vak})`);
         const waarden = dataPunten.map(d => d.cijfer);
 
-        if (grafiek) {
-            grafiek.destroy(); // Oude grafiek verwijderen voor we een nieuwe tekenen
-        }
+        if (grafiek) { grafiek.destroy(); }
 
         grafiek = new Chart(ctx, {
             type: 'line',
@@ -85,15 +109,19 @@
                 datasets: [{
                     label: 'Cijfer Verloop',
                     data: waarden,
-                    borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderColor: '#1a73e8',
+                    backgroundColor: 'rgba(26, 115, 232, 0.2)',
                     fill: true,
-                    tension: 0.3
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    tension: 0.2
                 }]
             },
             options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 scales: {
-                    y: { min: 1, max: 10 }
+                    y: { min: 1, max: 10, ticks: { stepSize: 1 } }
                 }
             }
         });
