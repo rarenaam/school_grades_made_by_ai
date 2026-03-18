@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cijfer Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        .stats { margin-top: 20px; font-weight: bold; font-size: 1.2em; }
+        canvas { margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Mijn Cijfer Ontwikkeling</h2>
+    
+    <div class="input-group">
+        <input type="text" id="vak" placeholder="Vak (bijv. Wiskunde)">
+        <input type="number" id="cijfer" step="0.1" min="1" max="10" placeholder="Cijfer">
+        <input type="date" id="datum">
+        <button onclick="voegCijferToe()">Toevoegen</button>
+    </div>
+
+    <div class="stats">
+        Gemiddelde: <span id="totaalGemiddelde">-</span>
+    </div>
+
+    <canvas id="cijferGrafiek"></canvas>
+</div>
+
+<script>
+    let dataPunten = [];
+    let grafiek;
+
+    function voegCijferToe() {
+        const vak = document.getElementById('vak').value;
+        const cijfer = parseFloat(document.getElementById('cijfer').value);
+        const datum = document.getElementById('datum').value;
+
+        if (!vak || isNaN(cijfer) || !datum) {
+            alert("Vul alsjeblieft alle velden correct in.");
+            return;
+        }
+
+        // Data opslaan
+        dataPunten.push({ vak, cijfer, datum });
+        
+        // Sorteren op datum voor de grafiek
+        dataPunten.sort((a, b) => new Date(a.datum) - new Date(b.datum));
+
+        updateStats();
+        updateGrafiek();
+        
+        // Input velden leegmaken
+        document.getElementById('cijfer').value = '';
+    }
+
+    function updateStats() {
+        const totaal = dataPunten.reduce((sum, item) => sum + item.cijfer, 0);
+        const gemiddelde = (totaal / dataPunten.length).toFixed(2);
+        document.getElementById('totaalGemiddelde').innerText = gemiddelde;
+    }
+
+    function updateGrafiek() {
+        const ctx = document.getElementById('cijferGrafiek').getContext('2d');
+        
+        const labels = dataPunten.map(d => d.datum);
+        const waarden = dataPunten.map(d => d.cijfer);
+
+        if (grafiek) {
+            grafiek.destroy(); // Oude grafiek verwijderen voor we een nieuwe tekenen
+        }
+
+        grafiek = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cijfer Verloop',
+                    data: waarden,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                scales: {
+                    y: { min: 1, max: 10 }
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
